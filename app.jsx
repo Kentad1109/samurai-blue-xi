@@ -430,13 +430,13 @@ function FormationBar({ formations, currentId, onChange, onReset, onSave, onFavo
         </div>
         <div className="formations-actions">
           <button className="ghost-btn" onClick={onReset} title="リセット">
-            <span className="btn-ic"><IconReset /></span><span>RESET</span>
+            <span className="btn-ic"><IconReset /></span><span>リセット</span>
           </button>
           <button className="ghost-btn" onClick={onFavorites} title="お気に入り">
-            <span className="btn-ic"><IconStar /></span><span>FAV</span>
+            <span className="btn-ic"><IconStar /></span><span>お気に入り</span>
           </button>
           <button className="ghost-btn" onClick={onSave} disabled={filledCount === 0} title="スタメンを画像で保存">
-            <span className="btn-ic"><IconCamera /></span><span>SAVE</span>
+            <span className="btn-ic"><IconCamera /></span><span>保存</span>
           </button>
         </div>
       </div>
