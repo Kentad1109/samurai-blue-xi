@@ -509,11 +509,11 @@ function Bench({ players, draggingPlayerId, selectedPlayerId, onPointerStart, on
         <div className="bench-hdr-row">
           <div className="bench-hdr-label">
             <span className="dot dot-red" />
-            ROSTER<span className="bench-hdr-count">{players.length}/26</span>
+            選手一覧<span className="bench-hdr-count">{players.length}/26</span>
           </div>
           <div className="bench-hdr-hint">
-            <span className="hint-mob">タップで選択 / 長押しでドラッグ</span>
-            <span className="hint-desk">ドラッグ&ドロップ / クリックで選択</span>
+            <span className="hint-mob">← 横にスクロール</span>
+            <span className="hint-desk">ポジションをタップして配置</span>
           </div>
         </div>
         <div className="filter-tabs">
@@ -839,17 +839,25 @@ function App() {
         filledCount={filledCount}
       />
       <main className="main">
-        <Pitch
-          slots={slots}
-          assignments={assignments}
-          players={PLAYERS}
-          draggingPlayerId={dnd.drag?.playerId}
-          selectedPlayerId={dnd.selected}
-          onPointerStart={dnd.begin}
-          onSlotTap={handleSlotTap}
-          pitchStyle={tweaks.pitchStyle}
-          showRomaji={tweaks.showRomaji}
-        />
+        <div className="pitch-col">
+          <Pitch
+            slots={slots}
+            assignments={assignments}
+            players={PLAYERS}
+            draggingPlayerId={dnd.drag?.playerId}
+            selectedPlayerId={dnd.selected}
+            onPointerStart={dnd.begin}
+            onSlotTap={handleSlotTap}
+            pitchStyle={tweaks.pitchStyle}
+            showRomaji={tweaks.showRomaji}
+          />
+          <div className="pitch-progress">
+            <div className="pitch-progress-bar">
+              <div className="pitch-progress-fill" style={{ width: (filledCount / 11 * 100) + '%' }} />
+            </div>
+            <span className="pitch-progress-count">{filledCount}/11</span>
+          </div>
+        </div>
         <Bench
           players={benchPlayers}
           draggingPlayerId={dnd.drag?.playerId}
@@ -860,7 +868,6 @@ function App() {
           showClub={tweaks.showClub}
         />
       </main>
-      <FormationInfo formation={formation} filledCount={filledCount} selectedName={selectedPlayer?.name} />
       <DragGhost drag={dnd.drag} players={PLAYERS} />
       {toast && <Toast key={toast.key}>{toast.msg}</Toast>}
       {pickingSlot && (
