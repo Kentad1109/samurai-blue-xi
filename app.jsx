@@ -76,7 +76,13 @@ const SAVE_STYLES = `
   .fav-hdr button{appearance:none;border:0;background:rgba(255,255,255,.1);
     color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px}
   .fav-hdr button:hover{background:rgba(255,255,255,.2)}
-  .fav-save-row{padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.06)}
+  .fav-save-row{padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:8px}
+  .fav-name-input{width:100%;appearance:none;border:1px solid rgba(110,166,255,.25);background:rgba(255,255,255,.05);
+    color:#fff;padding:9px 12px;border-radius:9px;font-size:13px;outline:none;
+    transition:border-color .15s}
+  .fav-name-input::placeholder{color:rgba(255,255,255,.3)}
+  .fav-name-input:focus{border-color:rgba(110,166,255,.6)}
+  .fav-name-input:disabled{opacity:.35;cursor:not-allowed}
   .fav-save-btn{width:100%;appearance:none;border:0;padding:11px;border-radius:10px;
     background:#1948d1;color:#fff;font-weight:700;font-size:14px;cursor:pointer;
     transition:background .15s}
@@ -387,6 +393,32 @@ function Header() {
   );
 }
 
+function IconReset() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8" />
+      <polyline points="3 3 3 8 8 8" />
+    </svg>
+  );
+}
+
+function IconStar() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
+function IconCamera() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  );
+}
+
 function FormationBar({ formations, currentId, onChange, onReset, onSave, onFavorites, filledCount }) {
   return (
     <div className="formations">
@@ -398,13 +430,13 @@ function FormationBar({ formations, currentId, onChange, onReset, onSave, onFavo
         </div>
         <div className="formations-actions">
           <button className="ghost-btn" onClick={onReset} title="リセット">
-            <span className="btn-ic">↺</span><span>RESET</span>
+            <span className="btn-ic"><IconReset /></span><span>RESET</span>
           </button>
           <button className="ghost-btn" onClick={onFavorites} title="お気に入り">
-            <span className="btn-ic">⭐</span><span>FAV</span>
+            <span className="btn-ic"><IconStar /></span><span>FAV</span>
           </button>
           <button className="ghost-btn" onClick={onSave} disabled={filledCount === 0} title="スタメンを画像で保存">
-            <span className="btn-ic">💾</span><span>SAVE</span>
+            <span className="btn-ic"><IconCamera /></span><span>SAVE</span>
           </button>
         </div>
       </div>
@@ -741,27 +773,10 @@ function SaveModal({ formation, assignments, players, onClose }) {
     });
   }, []);
 
-  const openInNewTab = (canvas) => {
-    canvas.toBlob(blob => {
-      if (!blob) { setDlState('error'); return; }
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      setTimeout(() => URL.revokeObjectURL(url), 15000);
-      setDlState('done');
-    }, 'image/png');
-  };
-
   const handleDownload = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     setDlState('downloading');
-
-    if (isIOS) {
-      // iOS: open full image in new tab → share sheet / long-press to save to Photos
-      openInNewTab(canvas);
-      return;
-    }
-
     canvas.toBlob(blob => {
       if (!blob) { setDlState('error'); return; }
       try {
@@ -774,22 +789,14 @@ function SaveModal({ formation, assignments, players, onClose }) {
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 5000);
         setDlState('done');
-      } catch {
-        openInNewTab(canvas);
-      }
+      } catch { setDlState('error'); }
     }, 'image/png');
   };
 
   const btnLabel = dlState === 'downloading' ? '処理中…'
-    : dlState === 'done' ? (isIOS ? '✓ 新しいタブで開きました' : '✓ ダウンロード完了！')
+    : dlState === 'done' ? '✓ ダウンロード完了！'
     : dlState === 'error' ? '⚠ もう一度試してください'
-    : isIOS ? '📤 画像を新しいタブで開く' : '⬇ 画像をダウンロード';
-
-  const hint = !imgUrl ? null
-    : isSafari ? '長押し → 「写真に追加」でカメラロールに保存できます'
-    : isIOSChrome ? '新しいタブで開いた後、長押し → 「写真に追加」で保存できます'
-    : isAndroid ? 'ダウンロード後、ギャラリーアプリに自動で追加されます'
-    : null;
+    : '⬇ 画像をダウンロード';
 
   return (
     <div className="save-overlay" onClick={onClose}>
@@ -805,14 +812,21 @@ function SaveModal({ formation, assignments, players, onClose }) {
           }
         </div>
         <div className="save-modal-ftr">
-          <button
-            className="save-dl-btn"
-            onClick={handleDownload}
-            disabled={!imgUrl || dlState === 'downloading'}
-          >
-            {btnLabel}
-          </button>
-          {hint && <div className="save-hint">💡 {hint}</div>}
+          {isIOS
+            ? imgUrl && <div className="save-hint" style={{fontSize:'13px',color:'rgba(255,255,255,.75)',padding:'10px 4px',textAlign:'center',lineHeight:1.7}}>
+                👆 画像を長押し →「写真に追加」でカメラロールに保存できます
+              </div>
+            : <>
+                <button
+                  className="save-dl-btn"
+                  onClick={handleDownload}
+                  disabled={!imgUrl || dlState === 'downloading'}
+                >
+                  {btnLabel}
+                </button>
+                {isAndroid && imgUrl && <div className="save-hint">💡 ダウンロード後、ギャラリーアプリに自動で追加されます</div>}
+              </>
+          }
         </div>
       </div>
     </div>
@@ -820,9 +834,14 @@ function SaveModal({ formation, assignments, players, onClose }) {
 }
 
 function FavoritesModal({ favorites, filledCount, onSaveCurrent, onLoad, onDelete, onClose }) {
+  const [favName, setFavName] = useState('');
   const fmt = (ts) => {
     const d = new Date(ts);
     return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+  };
+  const handleSave = () => {
+    onSaveCurrent(favName.trim());
+    setFavName('');
   };
   return (
     <div className="fav-overlay" onClick={onClose}>
@@ -832,7 +851,17 @@ function FavoritesModal({ favorites, filledCount, onSaveCurrent, onLoad, onDelet
           <button onClick={onClose}>✕</button>
         </div>
         <div className="fav-save-row">
-          <button className="fav-save-btn" onClick={onSaveCurrent} disabled={filledCount === 0}>
+          <input
+            className="fav-name-input"
+            type="text"
+            placeholder="スタメン名（省略可）"
+            value={favName}
+            onChange={e => setFavName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && filledCount > 0) handleSave(); }}
+            maxLength={40}
+            disabled={filledCount === 0}
+          />
+          <button className="fav-save-btn" onClick={handleSave} disabled={filledCount === 0}>
             ＋ 現在のスタメンを保存
           </button>
         </div>
@@ -1013,12 +1042,12 @@ function App() {
 
   const onReset = () => { setAssignments({}); dnd.setSelected(null); };
 
-  const onSaveFavorite = () => {
+  const onSaveFavorite = (customName) => {
     const d = new Date();
     const ds = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
     favs.save({
       id: Date.now(),
-      name: `${formation.label}  ${ds}`,
+      name: customName || `${formation.label}  ${ds}`,
       formationId,
       assignments: { ...assignments },
       filledCount,
