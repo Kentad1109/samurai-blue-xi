@@ -1,0 +1,837 @@
+// app.jsx — SAMURAI BLUE スタメンビルダー (モバイル対応版)
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+// ============================================================
+// Share Card — Canvas renderer
+// ============================================================
+const SAVE_STYLES = `
+  .save-overlay{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.78);
+    display:flex;align-items:center;justify-content:center;padding:16px}
+  .save-modal{background:#111827;border-radius:18px;overflow:hidden;
+    width:min(440px,100%);max-height:90vh;display:flex;flex-direction:column;
+    box-shadow:0 24px 64px rgba(0,0,0,.6)}
+  .save-modal-hdr{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 18px;background:rgba(255,255,255,.05);color:#fff;
+    font-weight:700;font-size:14px;letter-spacing:.04em}
+  .save-modal-hdr button{appearance:none;border:0;background:rgba(255,255,255,.1);
+    color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px}
+  .save-modal-hdr button:hover{background:rgba(255,255,255,.2)}
+  .save-preview-wrap{flex:1;overflow:auto;padding:16px;display:flex;
+    align-items:center;justify-content:center;min-height:0;background:#0a0f1e}
+  .save-preview-wrap img{max-width:100%;max-height:100%;border-radius:10px;display:block}
+  .save-generating{color:rgba(255,255,255,.4);font-size:14px;padding:48px}
+  .save-modal-ftr{padding:14px 18px;background:rgba(255,255,255,.03)}
+  .save-dl-btn{width:100%;appearance:none;border:0;padding:13px;border-radius:11px;
+    background:#ff2d4a;color:#fff;font-weight:800;font-size:15px;cursor:pointer;
+    letter-spacing:.04em;transition:background .15s}
+  .save-dl-btn:hover{background:#e6273f}
+  .save-dl-btn:disabled{background:rgba(255,255,255,.15);cursor:not-allowed}
+  .save-hdr-btn{appearance:none;border:0;background:rgba(255,255,255,.08);
+    color:rgba(255,255,255,.65);padding:6px 11px;border-radius:9px;
+    font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.06em;
+    line-height:1.3;text-align:center;transition:background .15s,color .15s}
+  .save-hdr-btn:hover{background:rgba(255,255,255,.16);color:#fff}
+  .save-hdr-btn.can-save{background:rgba(255,45,74,.6);color:#fff}
+  .save-hdr-btn.can-save:hover{background:#ff2d4a}
+`;
+
+function buildShareCard({ formation, assignments, players }) {
+  const W = 1080, H = 1350;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#0c1d56'); bg.addColorStop(0.65, '#06112e'); bg.addColorStop(1, '#030817');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // Top accent bar
+  ctx.fillStyle = '#ff2d4a'; ctx.fillRect(0, 0, W, 5);
+
+  // Header zone
+  const HDR = 190;
+  ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(0, 5, W, HDR - 5);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(110,166,255,.85)';
+  ctx.font = 'bold 13px -apple-system,"Helvetica Neue",sans-serif';
+  ctx.fillText('FIFA WORLD CUP 2026™  ·  STARTING XI', W / 2, 46);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 68px -apple-system,"Helvetica Neue",sans-serif';
+  ctx.fillText('SAMURAI BLUE', W / 2, 128);
+
+  // Formation chip
+  ctx.font = 'bold 15px -apple-system,sans-serif';
+  const chipText = formation.label + '  ·  ' + formation.tagline;
+  const chipW = ctx.measureText(chipText).width + 36;
+  const chipX = W / 2 - chipW / 2, chipY = 146;
+  ctx.fillStyle = '#ff2d4a';
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(chipX, chipY, chipW, 32, 16); ctx.fill(); }
+  else { ctx.fillRect(chipX, chipY, chipW, 32); }
+  ctx.fillStyle = '#fff';
+  ctx.fillText(chipText, W / 2, chipY + 21);
+
+  // Pitch area
+  const PX = 56, PY = HDR + 10, PW = W - PX * 2, PH = H - PY - 72;
+
+  // Grass stripes
+  const stripes = 14;
+  for (let i = 0; i < stripes; i++) {
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,.016)' : 'rgba(0,0,0,0)';
+    ctx.fillRect(PX, PY + i * (PH / stripes), PW, PH / stripes);
+  }
+
+  // Pitch lines
+  ctx.strokeStyle = 'rgba(255,255,255,.38)'; ctx.lineWidth = 2.5;
+  ctx.strokeRect(PX, PY, PW, PH);
+  ctx.beginPath(); ctx.moveTo(PX, PY + PH / 2); ctx.lineTo(PX + PW, PY + PH / 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W / 2, PY + PH / 2, PW * 0.09, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W / 2, PY + PH / 2, 5, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fill();
+
+  const PAW = PW * 0.52, PAH = PH * 0.13, GAW = PW * 0.28, GAH = PH * 0.05;
+  ctx.strokeRect(PX + (PW - PAW) / 2, PY, PAW, PAH);
+  ctx.strokeRect(PX + (PW - GAW) / 2, PY, GAW, GAH);
+  ctx.beginPath(); ctx.arc(W / 2, PY + PAH, PW * 0.085, 0.18 * Math.PI, 0.82 * Math.PI); ctx.stroke();
+  ctx.strokeRect(PX + (PW - PAW) / 2, PY + PH - PAH, PAW, PAH);
+  ctx.strokeRect(PX + (PW - GAW) / 2, PY + PH - GAH, GAW, GAH);
+  ctx.beginPath(); ctx.arc(W / 2, PY + PH - PAH, PW * 0.085, 1.18 * Math.PI, 1.82 * Math.PI); ctx.stroke();
+
+  // Players
+  const playerById = Object.fromEntries(players.map(p => [p.id, p]));
+  const slotById = Object.fromEntries(formation.slots.map(s => [s.id, s]));
+  const R = 38;
+
+  // Empty slots (dashed rings)
+  ctx.setLineDash([6, 5]);
+  ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 2;
+  for (const slot of formation.slots) {
+    if (assignments[slot.id]) continue;
+    const cx = PX + (slot.x / 100) * PW, cy = PY + (slot.y / 100) * PH;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.2)';
+    ctx.font = 'bold 14px -apple-system,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(slot.label, cx, cy);
+  }
+  ctx.setLineDash([]);
+
+  for (const [slotId, playerId] of Object.entries(assignments)) {
+    const slot = slotById[slotId], player = playerById[playerId];
+    if (!slot || !player) continue;
+    const cx = PX + (slot.x / 100) * PW, cy = PY + (slot.y / 100) * PH;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff2d4a'; ctx.fill();
+    ctx.restore();
+
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2.5; ctx.stroke();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold 28px -apple-system,"Helvetica Neue",sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(player.num), cx, cy);
+
+    if (player.captain) {
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 13px -apple-system,sans-serif';
+      ctx.textBaseline = 'top';
+      ctx.fillText('C', cx + R - 6, cy - R + 2);
+    }
+
+    const namePart = player.name.split(' ')[1] || player.name;
+    ctx.font = `bold 17px -apple-system,"Hiragino Sans","Yu Gothic","Noto Sans CJK JP",sans-serif`;
+    const nW = ctx.measureText(namePart).width + 18;
+    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - nW / 2, cy + R + 5, nW, 26, 7); ctx.fill(); }
+    else { ctx.fillRect(cx - nW / 2, cy + R + 5, nW, 26); }
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'top';
+    ctx.fillText(namePart, cx, cy + R + 10);
+  }
+
+  // Footer
+  ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(0, H - 62, W, 62);
+  const d = new Date();
+  const ds = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+  ctx.fillStyle = 'rgba(255,255,255,.28)';
+  ctx.font = '12px -apple-system,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`SAMURAI BLUE STARTING XI BUILDER  ·  ${ds}`, W / 2, H - 31);
+
+  return canvas;
+}
+
+// ====== Tweakable defaults ======
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "pitchStyle": "grass",
+  "showClub": true,
+  "showRomaji": false,
+  "accent": "#ff2d4a"
+}/*EDITMODE-END*/;
+
+const ROLE_ORDER = ['GK', 'DF', 'MF', 'FW'];
+const ROLE_LABELS = { GK: 'GK / ゴールキーパー', DF: 'DF / ディフェンダー', MF: 'MF / ミッドフィルダー', FW: 'FW / フォワード' };
+
+function groupByRole(players) {
+  const out = { GK: [], DF: [], MF: [], FW: [] };
+  for (const p of players) out[p.pos].push(p);
+  return out;
+}
+
+// ============================================================
+// usePointerDnD — touch & mouse unified drag-and-drop + tap select
+// ============================================================
+function usePointerDnD({ onDropSlot, onDropBench }) {
+  const [drag, setDrag] = useState(null); // { playerId, x, y }
+  const [selected, setSelected] = useState(null);
+  const handlersRef = useRef({ onDropSlot, onDropBench });
+  useEffect(() => { handlersRef.current = { onDropSlot, onDropBench }; }, [onDropSlot, onDropBench]);
+
+  const begin = useCallback((playerId, e, el) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const startX = e.clientX, startY = e.clientY;
+    let dragging = false;
+    const pointerId = e.pointerId;
+    let lastHover = null;
+
+    try { el.setPointerCapture(pointerId); } catch {}
+
+    const onMove = (ev) => {
+      const dx = ev.clientX - startX, dy = ev.clientY - startY;
+      if (!dragging && Math.hypot(dx, dy) > 8) {
+        dragging = true;
+        document.body.classList.add('is-dragging-body');
+      }
+      if (dragging) {
+        setDrag({ playerId, x: ev.clientX, y: ev.clientY });
+        // hover hint
+        const target = document.elementFromPoint(ev.clientX, ev.clientY);
+        const dropEl = target ? target.closest('[data-drop]') : null;
+        if (dropEl !== lastHover) {
+          if (lastHover) lastHover.classList.remove('drop-hover');
+          if (dropEl) dropEl.classList.add('drop-hover');
+          lastHover = dropEl;
+        }
+        ev.preventDefault?.();
+      }
+    };
+
+    const finish = (ev, cancelled) => {
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onCancel);
+      try { el.releasePointerCapture(pointerId); } catch {}
+      document.body.classList.remove('is-dragging-body');
+      if (lastHover) lastHover.classList.remove('drop-hover');
+
+      if (cancelled) { setDrag(null); return; }
+
+      if (dragging) {
+        const target = document.elementFromPoint(ev.clientX, ev.clientY);
+        const dropEl = target ? target.closest('[data-drop]') : null;
+        if (dropEl) {
+          const type = dropEl.dataset.drop;
+          if (type === 'slot') handlersRef.current.onDropSlot(dropEl.dataset.slotId, playerId);
+          else if (type === 'bench') handlersRef.current.onDropBench(playerId);
+        }
+        setDrag(null);
+      } else {
+        // tap = toggle selection
+        setSelected(prev => prev === playerId ? null : playerId);
+      }
+    };
+    const onUp = (ev) => finish(ev, false);
+    const onCancel = (ev) => finish(ev, true);
+
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointercancel', onCancel);
+  }, []);
+
+  return { drag, selected, begin, setSelected };
+}
+
+// ============================================================
+// Components
+// ============================================================
+function Header({ filledCount, onOpenTweaks, onSave }) {
+  return (
+    <header className="hdr">
+      <div className="hdr-left">
+        <div className="hdr-mark" aria-hidden="true">
+          <div className="hdr-mark-circle" />
+          <div className="hdr-mark-line" />
+        </div>
+        <div className="hdr-titles">
+          <div className="hdr-eyebrow">FIFA WORLD CUP 2026 ™ · STARTING XI</div>
+          <div className="hdr-title">
+            <span>SAMURAI</span>
+            <span className="hdr-title-blue">BLUE</span>
+          </div>
+          <div className="hdr-title-jp">スタメン<em>を</em>組もう。</div>
+        </div>
+      </div>
+      <div className="hdr-counter">
+        <div className="hdr-counter-num">
+          <span className={filledCount === 11 ? 'glow' : ''}>{String(filledCount).padStart(2, '0')}</span>
+          <span className="hdr-counter-divider">/</span>
+          <span>11</span>
+        </div>
+        <div className="hdr-counter-label">{filledCount === 11 ? 'XI COMPLETE' : 'ON PITCH'}</div>
+        <button
+          className={'save-hdr-btn' + (filledCount > 0 ? ' can-save' : '')}
+          onClick={onSave}
+          disabled={filledCount === 0}
+          title="スタメンを画像で保存"
+        >
+          📷<br/>SAVE
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function FormationBar({ formations, currentId, onChange, onReset, onShuffle }) {
+  return (
+    <div className="formations">
+      <div className="formations-top">
+        <div className="formations-label">
+          <span className="dot" />
+          <span className="formations-label-en">FORMATION</span>
+          <span className="formations-label-jp">フォーメーション</span>
+        </div>
+        <div className="formations-actions">
+          <button className="ghost-btn" onClick={onShuffle} title="自動配置">
+            <span className="btn-ic">⚡</span><span>AUTO</span>
+          </button>
+          <button className="ghost-btn" onClick={onReset} title="リセット">
+            <span className="btn-ic">↺</span><span>RESET</span>
+          </button>
+        </div>
+      </div>
+      <div className="formations-list">
+        {formations.map(f => (
+          <button
+            key={f.id}
+            className={'formation-chip' + (f.id === currentId ? ' active' : '')}
+            onClick={() => onChange(f.id)}
+          >
+            <span className="formation-chip-label">{f.label}</span>
+            <span className="formation-chip-tag">{f.tagline}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Pitch chip (in slot, smaller / vertical)
+function PitchChip({ player, isSelected, isDragging, isDimmed, onPointerStart, showRomaji }) {
+  const ref = useRef();
+  return (
+    <div
+      ref={ref}
+      className={
+        'chip chip-pitch' +
+        (isSelected ? ' is-selected' : '') +
+        (isDragging ? ' is-dragging' : '') +
+        (isDimmed ? ' is-dimmed' : '') +
+        (player.captain ? ' is-captain' : '')
+      }
+      onPointerDown={(e) => onPointerStart(player.id, e, ref.current)}
+      data-player={player.id}
+    >
+      <div className="chip-jersey">
+        <span className="chip-num">{player.num}</span>
+        {player.captain && <span className="chip-c">C</span>}
+      </div>
+      <div className="chip-meta">
+        <div className="chip-name">{player.name}</div>
+        {showRomaji && <div className="chip-roman">{player.nameRoman}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Bench chip (card layout for desktop, compact for mobile)
+function BenchChip({ player, isSelected, isDragging, isDimmed, onPointerStart, showRomaji, showClub }) {
+  const ref = useRef();
+  return (
+    <div
+      ref={ref}
+      className={
+        'chip chip-bench' +
+        (isSelected ? ' is-selected' : '') +
+        (isDragging ? ' is-dragging' : '') +
+        (isDimmed ? ' is-dimmed' : '') +
+        (player.captain ? ' is-captain' : '')
+      }
+      onPointerDown={(e) => onPointerStart(player.id, e, ref.current)}
+      data-player={player.id}
+    >
+      <div className="chip-jersey">
+        <span className="chip-num">{player.num}</span>
+        {player.captain && <span className="chip-c">C</span>}
+      </div>
+      <div className="chip-meta">
+        <div className="chip-name">{player.name}</div>
+        {showRomaji && <div className="chip-roman">{player.nameRoman}</div>}
+        {showClub && <div className="chip-club">{player.club}</div>}
+      </div>
+      <div className={'chip-pos-tag role-' + player.pos}>{player.pos}</div>
+    </div>
+  );
+}
+
+function SlotMarker({ slot, hinted }) {
+  return (
+    <div className={'slot-empty' + (hinted ? ' slot-empty-hint' : '')}>
+      <div className="slot-ring" />
+      <div className="slot-label">{slot.label}</div>
+    </div>
+  );
+}
+
+function Pitch({ slots, assignments, players, draggingPlayerId, selectedPlayerId, onPointerStart, onSlotTap, pitchStyle, showRomaji }) {
+  const playerById = useMemo(() => Object.fromEntries(players.map(p => [p.id, p])), [players]);
+  return (
+    <div className={'pitch-wrap pitch-' + pitchStyle}>
+      <div className="pitch-inner">
+        <Field />
+        {slots.map(slot => {
+          const placedId = assignments[slot.id];
+          const placed = placedId ? playerById[placedId] : null;
+          const hinted = (draggingPlayerId || selectedPlayerId) && !placed;
+          return (
+            <div
+              key={slot.id}
+              className={'slot' + (hinted ? ' is-hinted' : '')}
+              style={{ left: slot.x + '%', top: slot.y + '%' }}
+              data-drop="slot"
+              data-slot-id={slot.id}
+              onClick={() => !placed && onSlotTap(slot.id)}
+            >
+              {placed ? (
+                <PitchChip
+                  player={placed}
+                  isSelected={selectedPlayerId === placed.id}
+                  isDragging={draggingPlayerId === placed.id}
+                  isDimmed={draggingPlayerId && draggingPlayerId !== placed.id}
+                  onPointerStart={onPointerStart}
+                  showRomaji={showRomaji}
+                />
+              ) : (
+                <SlotMarker slot={slot} hinted={hinted} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Field() {
+  return (
+    <svg className="pitch-svg" viewBox="0 0 100 150" preserveAspectRatio="none">
+      <rect x="2" y="2" width="96" height="146" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <line x1="2" y1="75" x2="98" y2="75" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <circle cx="50" cy="75" r="9" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <circle cx="50" cy="75" r="0.7" fill="rgba(255,255,255,0.7)" />
+      <rect x="22" y="2" width="56" height="16" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <rect x="34" y="2" width="32" height="6" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <circle cx="50" cy="13" r="0.7" fill="rgba(255,255,255,0.7)" />
+      <path d="M 38 18 A 10 10 0 0 0 62 18" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <rect x="22" y="132" width="56" height="16" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <rect x="34" y="142" width="32" height="6" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <circle cx="50" cy="137" r="0.7" fill="rgba(255,255,255,0.7)" />
+      <path d="M 38 132 A 10 10 0 0 1 62 132" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <path d="M 2 4 A 2 2 0 0 1 4 2" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <path d="M 96 2 A 2 2 0 0 1 98 4" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <path d="M 98 146 A 2 2 0 0 1 96 148" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+      <path d="M 4 148 A 2 2 0 0 1 2 146" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.4" />
+    </svg>
+  );
+}
+
+function Bench({ players, draggingPlayerId, selectedPlayerId, onPointerStart, onBenchTap, showRomaji, showClub }) {
+  const [filter, setFilter] = useState('ALL');
+  const grouped = groupByRole(players);
+
+  const visibleRoles = filter === 'ALL' ? ROLE_ORDER : [filter];
+
+  return (
+    <aside
+      className="bench"
+      data-drop="bench"
+      onClick={(e) => {
+        // Only fire if clicked on bench background (not on a chip)
+        if (e.target.closest('.chip')) return;
+        onBenchTap();
+      }}
+    >
+      <div className="bench-hdr">
+        <div className="bench-hdr-row">
+          <div className="bench-hdr-label">
+            <span className="dot dot-red" />
+            ROSTER<span className="bench-hdr-count">{players.length}/26</span>
+          </div>
+          <div className="bench-hdr-hint">
+            <span className="hint-mob">タップで選択 / 長押しでドラッグ</span>
+            <span className="hint-desk">ドラッグ&ドロップ / クリックで選択</span>
+          </div>
+        </div>
+        <div className="filter-tabs">
+          {['ALL', ...ROLE_ORDER].map(t => (
+            <button
+              key={t}
+              className={'filter-tab' + (filter === t ? ' active' : '') + ' filter-' + t}
+              onClick={() => setFilter(t)}
+            >
+              {t}{t !== 'ALL' && grouped[t] ? <span className="filter-count">{grouped[t].length}</span> : null}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="bench-list">
+        {visibleRoles.map(role => (
+          <div key={role} className="bench-group">
+            <div className="bench-group-title">
+              <span className={'role-tag role-' + role}>{role}</span>
+              <span className="bench-group-name">{ROLE_LABELS[role]}</span>
+              <span className="bench-group-count">{grouped[role].length}</span>
+            </div>
+            <div className="bench-group-chips">
+              {grouped[role].length === 0 && <div className="bench-empty">全員ピッチ上</div>}
+              {grouped[role].map(p => (
+                <BenchChip
+                  key={p.id}
+                  player={p}
+                  isSelected={selectedPlayerId === p.id}
+                  isDragging={draggingPlayerId === p.id}
+                  isDimmed={draggingPlayerId && draggingPlayerId !== p.id}
+                  onPointerStart={onPointerStart}
+                  showRomaji={showRomaji}
+                  showClub={showClub}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function DragGhost({ drag, players }) {
+  if (!drag) return null;
+  const p = players.find(pp => pp.id === drag.playerId);
+  if (!p) return null;
+  return (
+    <div
+      className={'drag-ghost' + (p.captain ? ' is-captain' : '')}
+      style={{ left: drag.x, top: drag.y }}
+    >
+      <div className="chip-jersey ghost-jersey">
+        <span className="chip-num">{p.num}</span>
+        {p.captain && <span className="chip-c">C</span>}
+      </div>
+      <div className="ghost-name">{p.name}</div>
+    </div>
+  );
+}
+
+function FormationInfo({ formation, filledCount, selectedName }) {
+  return (
+    <footer className="ftr">
+      <div className="ftr-row">
+        <div className="ftr-formation">
+          <span className="ftr-label">FORMATION</span>
+          <span className="ftr-value">{formation.label}</span>
+          <span className="ftr-tag">{formation.tagline}</span>
+        </div>
+        <div className="ftr-progress">
+          {selectedName && (
+            <div className="ftr-selected">
+              <span className="ftr-selected-dot" />
+              <span><b>{selectedName}</b> を選択中 — 配置先をタップ</span>
+            </div>
+          )}
+          <div className="ftr-bar"><div className="ftr-bar-fill" style={{ width: (filledCount / 11 * 100) + '%' }} /></div>
+          <span className="ftr-pct">{filledCount}/11</span>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function Toast({ children }) {
+  return (
+    <div className="toast">
+      <div className="toast-burst" />
+      <div className="toast-text">{children}</div>
+    </div>
+  );
+}
+
+function SaveModal({ formation, assignments, players, onClose }) {
+  const [imgUrl, setImgUrl] = useState(null);
+
+  useEffect(() => {
+    const canvas = buildShareCard({ formation, assignments, players });
+    setImgUrl(canvas.toDataURL('image/png'));
+  }, []);
+
+  const handleDownload = () => {
+    if (!imgUrl) return;
+    const a = document.createElement('a');
+    a.href = imgUrl;
+    a.download = `samurai-blue-xi-${Date.now()}.png`;
+    a.click();
+  };
+
+  return (
+    <div className="save-overlay" onClick={onClose}>
+      <div className="save-modal" onClick={e => e.stopPropagation()}>
+        <div className="save-modal-hdr">
+          <span>📷 スタメン保存</span>
+          <button onClick={onClose}>✕</button>
+        </div>
+        <div className="save-preview-wrap">
+          {imgUrl
+            ? <img src={imgUrl} alt="スタメン" />
+            : <div className="save-generating">生成中…</div>
+          }
+        </div>
+        <div className="save-modal-ftr">
+          <button className="save-dl-btn" onClick={handleDownload} disabled={!imgUrl}>
+            ⬇ 画像をダウンロード
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TweaksUI({ tweaks, setTweak }) {
+  return (
+    <TweaksPanel title="Tweaks">
+      <TweakSection label="ピッチスタイル">
+        <TweakRadio
+          value={tweaks.pitchStyle}
+          options={[
+            { value: 'grass', label: '芝' },
+            { value: 'blueprint', label: '青写真' },
+            { value: 'night', label: 'ナイター' },
+          ]}
+          onChange={(v) => setTweak('pitchStyle', v)}
+        />
+      </TweakSection>
+      <TweakSection label="アクセントカラー">
+        <TweakColor
+          value={tweaks.accent}
+          options={['#ff2d4a', '#ffd84a', '#46e0b6', '#7c5cff']}
+          onChange={(v) => setTweak('accent', v)}
+        />
+      </TweakSection>
+      <TweakSection label="表示オプション">
+        <TweakToggle label="所属クラブを表示" value={tweaks.showClub} onChange={(v) => setTweak('showClub', v)} />
+        <TweakToggle label="ローマ字名を表示" value={tweaks.showRomaji} onChange={(v) => setTweak('showRomaji', v)} />
+      </TweakSection>
+    </TweaksPanel>
+  );
+}
+
+// ============================================================
+// App
+// ============================================================
+function App() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [formationId, setFormationId] = useState('3-4-2-1');
+  const [assignments, setAssignments] = useState({}); // slotId -> playerId
+  const [toast, setToast] = useState(null);
+  const [showSave, setShowSave] = useState(false);
+
+  useEffect(() => {
+    const s = document.createElement('style');
+    s.textContent = SAVE_STYLES;
+    document.head.appendChild(s);
+    return () => s.remove();
+  }, []);
+
+  const formation = FORMATIONS.find(f => f.id === formationId);
+  const slots = formation.slots;
+  const placedIds = new Set(Object.values(assignments));
+  const benchPlayers = PLAYERS.filter(p => !placedIds.has(p.id));
+  const filledCount = Object.keys(assignments).length;
+
+  // ----- handlers -----
+  const handleDropSlot = useCallback((slotId, playerId) => {
+    setAssignments(prev => {
+      const next = { ...prev };
+      const incumbent = next[slotId];
+      let oldSlot = null;
+      for (const k of Object.keys(next)) {
+        if (next[k] === playerId) { oldSlot = k; delete next[k]; }
+      }
+      if (incumbent === playerId) return prev; // dropped on self
+      next[slotId] = playerId;
+      if (incumbent && oldSlot) next[oldSlot] = incumbent;
+      return next;
+    });
+    dnd.setSelected(null);
+  }, []);
+
+  const handleDropBench = useCallback((playerId) => {
+    setAssignments(prev => {
+      const next = { ...prev };
+      for (const k of Object.keys(next)) {
+        if (next[k] === playerId) delete next[k];
+      }
+      return next;
+    });
+    dnd.setSelected(null);
+  }, []);
+
+  // Init DnD hook
+  const dnd = usePointerDnD({ onDropSlot: handleDropSlot, onDropBench: handleDropBench });
+
+  // tap on empty slot — place selected
+  const handleSlotTap = useCallback((slotId) => {
+    if (dnd.selected) {
+      handleDropSlot(slotId, dnd.selected);
+    }
+  }, [dnd.selected, handleDropSlot]);
+
+  // tap on bench background — return selected to bench
+  const handleBenchTap = useCallback(() => {
+    if (dnd.selected && placedIds.has(dnd.selected)) {
+      handleDropBench(dnd.selected);
+    }
+  }, [dnd.selected, placedIds, handleDropBench]);
+
+  // formation change — preserve players by role
+  const changeFormation = useCallback((newId) => {
+    setFormationId(prevId => {
+      const prevForm = FORMATIONS.find(f => f.id === prevId);
+      const newForm = FORMATIONS.find(f => f.id === newId);
+      setAssignments(prevAssign => {
+        const placedByRole = { GK: [], DF: [], MF: [], FW: [] };
+        for (const [slotId, pid] of Object.entries(prevAssign)) {
+          const slot = prevForm.slots.find(s => s.id === slotId);
+          if (slot) placedByRole[slot.role].push(pid);
+        }
+        const newSlotsByRole = { GK: [], DF: [], MF: [], FW: [] };
+        for (const s of newForm.slots) newSlotsByRole[s.role].push(s);
+        const next = {};
+        for (const r of ROLE_ORDER) {
+          const sl = newSlotsByRole[r];
+          const pl = placedByRole[r];
+          const n = Math.min(sl.length, pl.length);
+          for (let i = 0; i < n; i++) next[sl[i].id] = pl[i];
+        }
+        return next;
+      });
+      return newId;
+    });
+  }, []);
+
+  const onReset = () => { setAssignments({}); dnd.setSelected(null); };
+
+  const onShuffle = () => {
+    const slotsByRole = { GK: [], DF: [], MF: [], FW: [] };
+    for (const s of slots) slotsByRole[s.role].push(s);
+    const used = new Set(Object.values(assignments));
+    const next = { ...assignments };
+    for (const r of ROLE_ORDER) {
+      const empty = slotsByRole[r].filter(s => !next[s.id]);
+      const pool = PLAYERS.filter(p => p.pos === r && !used.has(p.id));
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      for (let i = 0; i < empty.length && i < pool.length; i++) {
+        next[empty[i].id] = pool[i].id;
+        used.add(pool[i].id);
+      }
+    }
+    for (const s of slots) {
+      if (!next[s.id]) {
+        const cand = PLAYERS.find(p => !used.has(p.id));
+        if (cand) { next[s.id] = cand.id; used.add(cand.id); }
+      }
+    }
+    setAssignments(next);
+  };
+
+  // celebrate at 11
+  const prev = useRef(0);
+  useEffect(() => {
+    if (filledCount === 11 && prev.current !== 11) setToast({ msg: 'スタメン11人完成！🇯🇵', key: Date.now() });
+    prev.current = filledCount;
+  }, [filledCount]);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2600);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // accent var
+  useEffect(() => { document.documentElement.style.setProperty('--accent', tweaks.accent); }, [tweaks.accent]);
+
+  const selectedPlayer = dnd.selected ? PLAYERS.find(p => p.id === dnd.selected) : null;
+
+  return (
+    <div className="app" data-pitch={tweaks.pitchStyle}>
+      <div className="bg" />
+      <Header filledCount={filledCount} onSave={() => setShowSave(true)} />
+      <FormationBar
+        formations={FORMATIONS}
+        currentId={formationId}
+        onChange={changeFormation}
+        onReset={onReset}
+        onShuffle={onShuffle}
+      />
+      <main className="main">
+        <Pitch
+          slots={slots}
+          assignments={assignments}
+          players={PLAYERS}
+          draggingPlayerId={dnd.drag?.playerId}
+          selectedPlayerId={dnd.selected}
+          onPointerStart={dnd.begin}
+          onSlotTap={handleSlotTap}
+          pitchStyle={tweaks.pitchStyle}
+          showRomaji={tweaks.showRomaji}
+        />
+        <Bench
+          players={benchPlayers}
+          draggingPlayerId={dnd.drag?.playerId}
+          selectedPlayerId={dnd.selected}
+          onPointerStart={dnd.begin}
+          onBenchTap={handleBenchTap}
+          showRomaji={tweaks.showRomaji}
+          showClub={tweaks.showClub}
+        />
+      </main>
+      <FormationInfo formation={formation} filledCount={filledCount} selectedName={selectedPlayer?.name} />
+      <DragGhost drag={dnd.drag} players={PLAYERS} />
+      {toast && <Toast key={toast.key}>{toast.msg}</Toast>}
+      {showSave && (
+        <SaveModal
+          formation={formation}
+          assignments={assignments}
+          players={PLAYERS}
+          onClose={() => setShowSave(false)}
+        />
+      )}
+      <TweaksUI tweaks={tweaks} setTweak={setTweak} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
