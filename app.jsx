@@ -40,7 +40,7 @@ async function buildShareCard({ formation, assignments, players }) {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
-    img.src = 'screens/uniform_icon.png';
+    img.src = 'screens/uniicon_new.png';
   });
   const W = 1080, H = 1350;
   const canvas = document.createElement('canvas');
@@ -332,7 +332,7 @@ function PitchChip({ player, isSelected, isDragging, isDimmed, onPointerStart, s
       data-player={player.id}
     >
       <div className="chip-jersey">
-        <img src="screens/uniform_icon.png" className="uniform-img" alt="" draggable="false" />
+        <img src="screens/uniicon_new.png" className="uniform-img" alt="" draggable="false" />
         {player.captain && <span className="chip-c">C</span>}
       </div>
       <div className="chip-meta">
@@ -360,7 +360,7 @@ function BenchChip({ player, isSelected, isDragging, isDimmed, onPointerStart, s
       data-player={player.id}
     >
       <div className="chip-jersey">
-        <img src="screens/uniform_icon.png" className="uniform-img" alt="" draggable="false" />
+        <img src="screens/uniicon_new.png" className="uniform-img" alt="" draggable="false" />
         {player.captain && <span className="chip-c">C</span>}
       </div>
       <div className="chip-meta">
@@ -523,7 +523,7 @@ function DragGhost({ drag, players }) {
       style={{ left: drag.x, top: drag.y }}
     >
       <div className="chip-jersey ghost-jersey">
-        <img src="screens/uniform_icon.png" className="uniform-img" alt="" draggable="false" />
+        <img src="screens/uniicon_new.png" className="uniform-img" alt="" draggable="false" />
         {p.captain && <span className="chip-c">C</span>}
       </div>
       <div className="ghost-name">{p.name}</div>
