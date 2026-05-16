@@ -381,7 +381,7 @@ function Header() {
           <div className="hdr-mark-line" />
         </div>
         <div className="hdr-titles">
-          <div className="hdr-eyebrow">FIFA WORLD CUP 2026 ™ · STARTING XI</div>
+          <div className="hdr-eyebrow">君だけの最強スタメンを選ぼう</div>
           <div className="hdr-title">
             <span>SAMURAI</span>
             <span className="hdr-title-blue">BLUE</span>
@@ -575,6 +575,7 @@ function Pitch({ slots, assignments, players, draggingPlayerId, selectedPlayerId
   return (
     <div className={'pitch-wrap pitch-' + pitchStyle}>
       <div className="pitch-inner">
+        <span className="pitch-tap-hint">タップで選択</span>
         <Field />
         {slots.map(slot => {
           const placedId = assignments[slot.id];

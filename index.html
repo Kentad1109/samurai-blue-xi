@@ -100,11 +100,11 @@
   }
   .hdr-titles { min-width: 0; }
   .hdr-eyebrow {
-    font-family: 'Oswald', sans-serif;
-    font-size: 10.5px;
-    letter-spacing: 0.22em;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     color: var(--blue-light);
-    text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -315,6 +315,16 @@
     position: absolute; inset: 0;
     width: 100%; height: 100%;
     pointer-events: none;
+  }
+  .pitch-tap-hint {
+    position: absolute;
+    top: 6px; right: 8px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.35);
+    pointer-events: none;
+    z-index: 1;
   }
 
   /* ===================== Slots ===================== */
