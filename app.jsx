@@ -260,7 +260,7 @@ function usePointerDnD({ onDropSlot, onDropBench }) {
 // ============================================================
 // Components
 // ============================================================
-function Header({ filledCount, onOpenTweaks, onSave }) {
+function Header() {
   return (
     <header className="hdr">
       <div className="hdr-left">
@@ -277,27 +277,11 @@ function Header({ filledCount, onOpenTweaks, onSave }) {
           <div className="hdr-title-jp">スタメン<em>を</em>組もう。</div>
         </div>
       </div>
-      <div className="hdr-counter">
-        <div className="hdr-counter-num">
-          <span className={filledCount === 11 ? 'glow' : ''}>{String(filledCount).padStart(2, '0')}</span>
-          <span className="hdr-counter-divider">/</span>
-          <span>11</span>
-        </div>
-        <div className="hdr-counter-label">{filledCount === 11 ? 'XI COMPLETE' : 'ON PITCH'}</div>
-        <button
-          className={'save-hdr-btn' + (filledCount > 0 ? ' can-save' : '')}
-          onClick={onSave}
-          disabled={filledCount === 0}
-          title="スタメンを画像で保存"
-        >
-          📷<br/>SAVE
-        </button>
-      </div>
     </header>
   );
 }
 
-function FormationBar({ formations, currentId, onChange, onReset, onShuffle }) {
+function FormationBar({ formations, currentId, onChange, onReset, onSave, filledCount }) {
   return (
     <div className="formations">
       <div className="formations-top">
@@ -307,11 +291,11 @@ function FormationBar({ formations, currentId, onChange, onReset, onShuffle }) {
           <span className="formations-label-jp">フォーメーション</span>
         </div>
         <div className="formations-actions">
-          <button className="ghost-btn" onClick={onShuffle} title="自動配置">
-            <span className="btn-ic">⚡</span><span>AUTO</span>
-          </button>
           <button className="ghost-btn" onClick={onReset} title="リセット">
             <span className="btn-ic">↺</span><span>RESET</span>
+          </button>
+          <button className="ghost-btn" onClick={onSave} disabled={filledCount === 0} title="スタメンを画像で保存">
+            <span className="btn-ic">💾</span><span>SAVE</span>
           </button>
         </div>
       </div>
@@ -790,13 +774,14 @@ function App() {
   return (
     <div className="app" data-pitch={tweaks.pitchStyle}>
       <div className="bg" />
-      <Header filledCount={filledCount} onSave={() => setShowSave(true)} />
+      <Header />
       <FormationBar
         formations={FORMATIONS}
         currentId={formationId}
         onChange={changeFormation}
         onReset={onReset}
-        onShuffle={onShuffle}
+        onSave={() => setShowSave(true)}
+        filledCount={filledCount}
       />
       <main className="main">
         <Pitch
