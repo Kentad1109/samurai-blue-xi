@@ -66,6 +66,7 @@ const SAVE_STYLES = `
 async function buildShareCard({ formation, assignments, players }) {
   const uniformImg = await new Promise((resolve) => {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
     img.src = 'screens/uniicon_new.png';
@@ -637,31 +638,61 @@ function Toast({ children }) {
   );
 }
 
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
 function SaveModal({ formation, assignments, players, onClose }) {
   const [imgUrl, setImgUrl] = useState(null);
+  const [dlState, setDlState] = useState('idle'); // idle | downloading | done | error
   const canvasRef = useRef(null);
 
   useEffect(() => {
     buildShareCard({ formation, assignments, players }).then(canvas => {
       canvasRef.current = canvas;
       setImgUrl(canvas.toDataURL('image/png'));
-    });
+    }).catch(() => setDlState('error'));
   }, []);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    setDlState('downloading');
+
+    if (isIOS) {
+      // iOS Safari ignores <a download>; open blob in new tab — user saves via share sheet
+      canvas.toBlob(blob => {
+        if (!blob) { setDlState('error'); return; }
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        setDlState('done');
+      }, 'image/png');
+      return;
+    }
+
     canvas.toBlob(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `samurai-blue-xi-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (!blob) { setDlState('error'); return; }
+      try {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `samurai-blue-xi-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        setDlState('done');
+      } catch {
+        setDlState('error');
+      }
     }, 'image/png');
   };
+
+  const btnLabel = {
+    idle: isIOS ? '📤 画像を開いて保存' : '⬇ 画像をダウンロード',
+    downloading: '処理中…',
+    done: isIOS ? '✓ 開きました！シェアボタンで保存を' : '✓ ダウンロード完了！',
+    error: '⚠ エラー — もう一度試してください',
+  }[dlState];
 
   return (
     <div className="save-overlay" onClick={onClose}>
@@ -676,9 +707,18 @@ function SaveModal({ formation, assignments, players, onClose }) {
             : <div className="save-generating">画像を生成中…</div>
           }
         </div>
+        {isIOS && imgUrl && (
+          <div style={{padding:'6px 18px 0',fontSize:'12px',color:'rgba(110,166,255,.7)',textAlign:'center'}}>
+            ※ iPhoneは画像を長押し→「写真に追加」でも保存できます
+          </div>
+        )}
         <div className="save-modal-ftr">
-          <button className="save-dl-btn" onClick={handleDownload} disabled={!imgUrl}>
-            ⬇ 画像をダウンロード
+          <button
+            className="save-dl-btn"
+            onClick={handleDownload}
+            disabled={!imgUrl || dlState === 'downloading'}
+          >
+            {btnLabel}
           </button>
         </div>
       </div>
