@@ -19,13 +19,13 @@ const SAVE_STYLES = `
   .save-preview-wrap{flex:1;overflow:auto;padding:16px;display:flex;
     align-items:center;justify-content:center;min-height:0;background:#0a0f1e}
   .save-preview-wrap img{max-width:100%;max-height:100%;border-radius:10px;display:block}
-  .save-generating{color:rgba(255,255,255,.4);font-size:14px;padding:48px}
+  .save-generating{color:rgba(255,255,255,.4);font-size:14px;padding:48px;text-align:center}
   .save-modal-ftr{padding:14px 18px;background:rgba(255,255,255,.03)}
   .save-dl-btn{width:100%;appearance:none;border:0;padding:13px;border-radius:11px;
     background:#ff2d4a;color:#fff;font-weight:800;font-size:15px;cursor:pointer;
     letter-spacing:.04em;transition:background .15s}
   .save-dl-btn:hover{background:#e6273f}
-  .save-dl-btn:disabled{background:rgba(255,255,255,.15);cursor:not-allowed}
+  .save-dl-btn:disabled{background:rgba(255,255,255,.15);cursor:not-allowed;color:rgba(255,255,255,.4)}
   .save-hdr-btn{appearance:none;border:0;background:rgba(255,255,255,.08);
     color:rgba(255,255,255,.65);padding:6px 11px;border-radius:9px;
     font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.06em;
@@ -33,6 +33,34 @@ const SAVE_STYLES = `
   .save-hdr-btn:hover{background:rgba(255,255,255,.16);color:#fff}
   .save-hdr-btn.can-save{background:rgba(255,45,74,.6);color:#fff}
   .save-hdr-btn.can-save:hover{background:#ff2d4a}
+
+  /* Completion popup */
+  .comp-overlay{position:fixed;inset:0;z-index:8500;background:rgba(0,0,0,.72);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+    animation:fadeInBg .25s ease}
+  @keyframes fadeInBg{from{opacity:0}to{opacity:1}}
+  .comp-modal{background:linear-gradient(160deg,#0c1d56 0%,#06112e 100%);
+    border:1px solid rgba(110,166,255,.25);
+    border-radius:24px;width:min(380px,100%);padding:36px 28px 28px;
+    text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06);
+    animation:popIn .35s cubic-bezier(.22,1.8,.36,1)}
+  @keyframes popIn{from{opacity:0;transform:scale(.82) translateY(20px)}to{opacity:1;transform:none}}
+  .comp-flag{font-size:52px;line-height:1;margin-bottom:12px;
+    animation:flagWave .6s ease .2s both}
+  @keyframes flagWave{0%{transform:rotate(-8deg) scale(.8)}50%{transform:rotate(6deg) scale(1.1)}100%{transform:rotate(0) scale(1)}}
+  .comp-title{font-size:22px;font-weight:900;color:#fff;margin-bottom:8px;letter-spacing:.02em}
+  .comp-sub{font-size:13px;color:rgba(110,166,255,.8);margin-bottom:28px;letter-spacing:.04em}
+  .comp-save-btn{width:100%;appearance:none;border:0;padding:15px;border-radius:13px;
+    background:linear-gradient(135deg,#ff2d4a,#c41e35);color:#fff;
+    font-weight:800;font-size:16px;cursor:pointer;letter-spacing:.04em;
+    box-shadow:0 8px 24px rgba(255,45,74,.4);transition:transform .12s,box-shadow .12s;
+    margin-bottom:12px}
+  .comp-save-btn:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(255,45,74,.5)}
+  .comp-save-btn:active{transform:translateY(0)}
+  .comp-later-btn{appearance:none;border:0;background:transparent;
+    color:rgba(255,255,255,.38);font-size:13px;cursor:pointer;padding:6px;
+    transition:color .15s;width:100%}
+  .comp-later-btn:hover{color:rgba(255,255,255,.6)}
 `;
 
 async function buildShareCard({ formation, assignments, players }) {
@@ -611,18 +639,28 @@ function Toast({ children }) {
 
 function SaveModal({ formation, assignments, players, onClose }) {
   const [imgUrl, setImgUrl] = useState(null);
+  const canvasRef = useRef(null);
 
   useEffect(() => {
-    buildShareCard({ formation, assignments, players })
-      .then(canvas => setImgUrl(canvas.toDataURL('image/png')));
+    buildShareCard({ formation, assignments, players }).then(canvas => {
+      canvasRef.current = canvas;
+      setImgUrl(canvas.toDataURL('image/png'));
+    });
   }, []);
 
   const handleDownload = () => {
-    if (!imgUrl) return;
-    const a = document.createElement('a');
-    a.href = imgUrl;
-    a.download = `samurai-blue-xi-${Date.now()}.png`;
-    a.click();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `samurai-blue-xi-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, 'image/png');
   };
 
   return (
@@ -635,7 +673,7 @@ function SaveModal({ formation, assignments, players, onClose }) {
         <div className="save-preview-wrap">
           {imgUrl
             ? <img src={imgUrl} alt="スタメン" />
-            : <div className="save-generating">生成中…</div>
+            : <div className="save-generating">画像を生成中…</div>
           }
         </div>
         <div className="save-modal-ftr">
@@ -643,6 +681,24 @@ function SaveModal({ formation, assignments, players, onClose }) {
             ⬇ 画像をダウンロード
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CompletionModal({ onSave, onClose }) {
+  return (
+    <div className="comp-overlay" onClick={onClose}>
+      <div className="comp-modal" onClick={e => e.stopPropagation()}>
+        <div className="comp-flag">🇯🇵</div>
+        <div className="comp-title">スタメン11人完成！</div>
+        <div className="comp-sub">最強のイレブンが揃った！</div>
+        <button className="comp-save-btn" onClick={onSave}>
+          📷 スタメンを保存する
+        </button>
+        <button className="comp-later-btn" onClick={onClose}>
+          あとで保存する
+        </button>
       </div>
     </div>
   );
@@ -686,6 +742,7 @@ function App() {
   const [assignments, setAssignments] = useState({}); // slotId -> playerId
   const [toast, setToast] = useState(null);
   const [showSave, setShowSave] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(false);
   const [pickingSlot, setPickingSlot] = useState(null);
 
   useEffect(() => {
@@ -812,7 +869,7 @@ function App() {
   // celebrate at 11
   const prev = useRef(0);
   useEffect(() => {
-    if (filledCount === 11 && prev.current !== 11) setToast({ msg: 'スタメン11人完成！🇯🇵', key: Date.now() });
+    if (filledCount === 11 && prev.current !== 11) setShowCompletion(true);
     prev.current = filledCount;
   }, [filledCount]);
   useEffect(() => {
@@ -878,6 +935,12 @@ function App() {
           onPick={handlePickPlayer}
           onRemove={handleRemoveFromSlot}
           onClose={() => setPickingSlot(null)}
+        />
+      )}
+      {showCompletion && (
+        <CompletionModal
+          onSave={() => { setShowCompletion(false); setShowSave(true); }}
+          onClose={() => setShowCompletion(false)}
         />
       )}
       {showSave && (
