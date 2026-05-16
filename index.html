@@ -446,7 +446,7 @@
     position: sticky;
     top: 12px;
     align-self: start;
-    touch-action: pan-y;
+    touch-action: auto;
   }
   .bench::-webkit-scrollbar { width: 6px; }
   .bench::-webkit-scrollbar-thumb { background: rgba(110,166,255,0.25); border-radius: 4px; }
@@ -870,6 +870,7 @@
       -webkit-overflow-scrolling: touch;
     }
     .bench-group-chips::-webkit-scrollbar { display: none; }
+    .bench-group-chips .chip { touch-action: pan-x; }
 
     /* Compact card-style bench chip on mobile */
     .chip-bench {
