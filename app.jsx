@@ -373,6 +373,51 @@ function BenchChip({ player, isSelected, isDragging, isDimmed, onPointerStart, s
   );
 }
 
+function SlotPickerModal({ slot, assignments, players, onPick, onRemove, onClose }) {
+  const currentPlayerId = assignments[slot.id];
+  const placedIds = new Set(Object.values(assignments));
+
+  const bench = players.filter(p => !placedIds.has(p.id));
+  const benchMatch = bench.filter(p => p.pos === slot.role);
+  const benchOther = bench.filter(p => p.pos !== slot.role);
+  const pitchOthers = players.filter(p => placedIds.has(p.id) && p.id !== currentPlayerId);
+
+  const PlayerRow = ({ p, placed }) => (
+    <button className={'picker-player' + (placed ? ' picker-placed' : '')} onClick={() => onPick(p.id)}>
+      <img src="screens/uniicon_new.png" className="picker-player-icon" alt="" draggable="false" />
+      <div className="picker-player-info">
+        <span className="picker-player-name">{p.name}{p.captain ? '  ©' : ''}</span>
+        <span className="picker-player-club">{p.club}</span>
+      </div>
+      <span className={'role-tag role-' + p.pos}>{p.pos}</span>
+    </button>
+  );
+
+  return (
+    <div className="picker-overlay" onClick={onClose}>
+      <div className="picker-sheet" onClick={e => e.stopPropagation()}>
+        <div className="picker-handle" />
+        <div className="picker-hdr">
+          <div className="picker-hdr-info">
+            <span className={'role-tag role-' + slot.role}>{slot.role}</span>
+            <span className="picker-hdr-label">{slot.label} に配置</span>
+          </div>
+          {currentPlayerId && <button className="picker-remove" onClick={onRemove}>外す</button>}
+          <button className="picker-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="picker-list">
+          {benchMatch.map(p => <PlayerRow key={p.id} p={p} />)}
+          {benchOther.map(p => <PlayerRow key={p.id} p={p} />)}
+          {pitchOthers.length > 0 && <>
+            <div className="picker-section-label">ピッチ上から入れ替え</div>
+            {pitchOthers.map(p => <PlayerRow key={p.id} p={p} placed />)}
+          </>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SlotMarker({ slot, hinted }) {
   return (
     <div className={'slot-empty' + (hinted ? ' slot-empty-hint' : '')}>
@@ -399,7 +444,7 @@ function Pitch({ slots, assignments, players, draggingPlayerId, selectedPlayerId
               style={{ left: slot.x + '%', top: slot.y + '%' }}
               data-drop="slot"
               data-slot-id={slot.id}
-              onClick={() => !placed && onSlotTap(slot.id)}
+              onClick={() => onSlotTap(slot.id)}
             >
               {placed ? (
                 <PitchChip
@@ -641,6 +686,7 @@ function App() {
   const [assignments, setAssignments] = useState({}); // slotId -> playerId
   const [toast, setToast] = useState(null);
   const [showSave, setShowSave] = useState(false);
+  const [pickingSlot, setPickingSlot] = useState(null);
 
   useEffect(() => {
     const s = document.createElement('style');
@@ -686,12 +732,21 @@ function App() {
   // Init DnD hook
   const dnd = usePointerDnD({ onDropSlot: handleDropSlot, onDropBench: handleDropBench });
 
-  // tap on empty slot — place selected
+  // tap on slot → open picker
   const handleSlotTap = useCallback((slotId) => {
-    if (dnd.selected) {
-      handleDropSlot(slotId, dnd.selected);
-    }
-  }, [dnd.selected, handleDropSlot]);
+    dnd.setSelected(null);
+    setPickingSlot(slotId);
+  }, []);
+
+  const handlePickPlayer = useCallback((playerId) => {
+    handleDropSlot(pickingSlot, playerId);
+    setPickingSlot(null);
+  }, [pickingSlot, handleDropSlot]);
+
+  const handleRemoveFromSlot = useCallback(() => {
+    if (assignments[pickingSlot]) handleDropBench(assignments[pickingSlot]);
+    setPickingSlot(null);
+  }, [pickingSlot, assignments, handleDropBench]);
 
   // tap on bench background — return selected to bench
   const handleBenchTap = useCallback(() => {
@@ -808,6 +863,16 @@ function App() {
       <FormationInfo formation={formation} filledCount={filledCount} selectedName={selectedPlayer?.name} />
       <DragGhost drag={dnd.drag} players={PLAYERS} />
       {toast && <Toast key={toast.key}>{toast.msg}</Toast>}
+      {pickingSlot && (
+        <SlotPickerModal
+          slot={formation.slots.find(s => s.id === pickingSlot)}
+          assignments={assignments}
+          players={PLAYERS}
+          onPick={handlePickPlayer}
+          onRemove={handleRemoveFromSlot}
+          onClose={() => setPickingSlot(null)}
+        />
+      )}
       {showSave && (
         <SaveModal
           formation={formation}

@@ -779,6 +779,110 @@
     100% { opacity: 0; transform: scale(1.4); }
   }
 
+  /* ===================== Slot Picker Modal ===================== */
+  .picker-overlay {
+    position: fixed; inset: 0; z-index: 800;
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .picker-sheet {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(180deg, #0d1e5a 0%, #060f2e 100%);
+    border: 1px solid rgba(110,166,255,0.2);
+    border-bottom: none;
+    border-radius: 22px 22px 0 0;
+    max-height: 72vh;
+    display: flex; flex-direction: column;
+    animation: pickerSlideUp .28s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes pickerSlideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .picker-handle {
+    width: 36px; height: 4px;
+    background: rgba(255,255,255,.2);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+  }
+  .picker-hdr {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 18px 12px;
+    border-bottom: 1px solid rgba(110,166,255,0.12);
+    flex-shrink: 0;
+  }
+  .picker-hdr-info { flex: 1; display: flex; align-items: center; gap: 8px; }
+  .picker-hdr-label {
+    font-family: 'Oswald', sans-serif;
+    font-size: 15px; font-weight: 700;
+    color: var(--white); letter-spacing: 0.04em;
+  }
+  .picker-remove {
+    appearance: none;
+    border: 1px solid rgba(255,45,74,.4);
+    background: rgba(255,45,74,.1); color: var(--accent);
+    padding: 6px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+    white-space: nowrap;
+  }
+  .picker-remove:hover { background: rgba(255,45,74,.22); }
+  .picker-close {
+    appearance: none; border: 0;
+    background: rgba(255,255,255,.08); color: var(--off);
+    width: 28px; height: 28px; border-radius: 50%;
+    font-size: 13px; cursor: pointer;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .picker-close:hover { background: rgba(255,255,255,.18); }
+  .picker-list {
+    overflow-y: auto; flex: 1;
+    padding: 8px 14px 32px;
+    display: flex; flex-direction: column; gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .picker-section-label {
+    font-family: 'Oswald', sans-serif;
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); padding: 10px 0 4px;
+  }
+  .picker-player {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; appearance: none;
+    border: 1px solid rgba(110,166,255,.15);
+    background: rgba(25,72,209,.12);
+    border-radius: 12px; padding: 10px 12px;
+    cursor: pointer; text-align: left;
+    transition: background .12s, border-color .12s, transform .1s;
+    touch-action: manipulation;
+  }
+  .picker-player:active {
+    background: rgba(46,123,255,.3);
+    border-color: rgba(110,166,255,.5);
+    transform: scale(0.98);
+  }
+  .picker-player.picker-placed {
+    opacity: 0.6;
+    border-style: dashed;
+  }
+  .picker-player-icon {
+    width: 44px; height: 44px; border-radius: 50%;
+    object-fit: cover; flex-shrink: 0;
+  }
+  .picker-player-info { flex: 1; min-width: 0; }
+  .picker-player-name {
+    font-size: 14px; font-weight: 700;
+    color: var(--white); display: block; line-height: 1.2;
+  }
+  .picker-player-club {
+    font-size: 11px; color: var(--muted);
+    display: block; margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
   /* =======================================================
      ============== MOBILE (<= 860px) =====================
      ======================================================= */
