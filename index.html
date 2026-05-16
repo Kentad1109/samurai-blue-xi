@@ -258,7 +258,6 @@
     display: block;
     align-self: start;
     min-width: 0;
-    max-width: calc((100vh - 200px) * 2 / 3);
   }
   .pitch-progress {
     display: flex; align-items: center; gap: 12px;
@@ -908,6 +907,28 @@
     font-size: 11px; color: var(--muted);
     display: block; margin-top: 2px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* =======================================================
+     ============== DESKTOP (>= 861px) =====================
+     ======================================================= */
+  @media (min-width: 861px) {
+    .pitch-col {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 300px);
+    }
+    .pitch-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow: visible;
+    }
+    .pitch-inner {
+      height: 100%;
+      width: auto;
+      aspect-ratio: 2 / 3;
+      margin: 0 auto;
+    }
   }
 
   /* =======================================================
