@@ -63,6 +63,43 @@ const SAVE_STYLES = `
     color:rgba(255,255,255,.38);font-size:13px;cursor:pointer;padding:6px;
     transition:color .15s;width:100%}
   .comp-later-btn:hover{color:rgba(255,255,255,.6)}
+
+  /* Favorites modal */
+  .fav-overlay{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.78);
+    display:flex;align-items:center;justify-content:center;padding:16px}
+  .fav-modal{background:#111827;border-radius:18px;overflow:hidden;
+    width:min(480px,100%);max-height:85vh;display:flex;flex-direction:column;
+    box-shadow:0 24px 64px rgba(0,0,0,.6)}
+  .fav-hdr{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 18px;background:rgba(255,255,255,.05);color:#fff;
+    font-weight:700;font-size:14px;letter-spacing:.04em}
+  .fav-hdr button{appearance:none;border:0;background:rgba(255,255,255,.1);
+    color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px}
+  .fav-hdr button:hover{background:rgba(255,255,255,.2)}
+  .fav-save-row{padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.06)}
+  .fav-save-btn{width:100%;appearance:none;border:0;padding:11px;border-radius:10px;
+    background:#1948d1;color:#fff;font-weight:700;font-size:14px;cursor:pointer;
+    transition:background .15s}
+  .fav-save-btn:hover{background:#2e7bff}
+  .fav-save-btn:disabled{background:rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:not-allowed}
+  .fav-list{flex:1;overflow-y:auto;padding:4px 0}
+  .fav-empty{padding:32px;text-align:center;color:rgba(255,255,255,.35);font-size:14px}
+  .fav-item{display:flex;align-items:center;gap:12px;padding:12px 18px;
+    border-bottom:1px solid rgba(255,255,255,.05)}
+  .fav-item:last-child{border-bottom:none}
+  .fav-item-info{flex:1;min-width:0}
+  .fav-item-name{font-size:14px;font-weight:700;color:#fff;margin-bottom:3px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fav-item-meta{font-size:11px;color:rgba(110,166,255,.65)}
+  .fav-item-btns{display:flex;gap:6px;flex-shrink:0}
+  .fav-load-btn{appearance:none;border:0;background:rgba(46,123,255,.3);color:#fff;
+    padding:6px 10px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;
+    transition:background .15s}
+  .fav-load-btn:hover{background:rgba(46,123,255,.65)}
+  .fav-del-btn{appearance:none;border:0;background:rgba(255,45,74,.18);
+    color:rgba(255,100,120,.9);padding:6px 10px;border-radius:7px;
+    font-size:12px;font-weight:700;cursor:pointer;transition:background .15s}
+  .fav-del-btn:hover{background:rgba(255,45,74,.4);color:#fff}
 `;
 
 async function buildShareCard({ formation, assignments, players }) {
@@ -160,27 +197,40 @@ async function buildShareCard({ formation, assignments, players }) {
     if (!slot || !player) continue;
     const cx = PX + (slot.x / 100) * PW, cy = PY + (slot.y / 100) * PH;
 
+    // shadow + background fill (separate from clip so shadow renders correctly)
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
-    if (uniformImg) {
-      ctx.drawImage(uniformImg, cx - R, cy - R, R * 2, R * 2);
-    } else {
-      ctx.fillStyle = '#1948d1'; ctx.fill();
-    }
+    ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 5;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fillStyle = '#1948d1'; ctx.fill();
     ctx.restore();
 
+    // uniform image clipped to circle
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+    if (uniformImg) ctx.drawImage(uniformImg, cx - R, cy - R, R * 2, R * 2);
+    ctx.restore();
+
+    // ring border
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.strokeStyle = player.captain ? '#ffd700' : 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = player.captain ? 3.5 : 1.5;
+    ctx.stroke();
+
+    // captain badge
     if (player.captain) {
       ctx.fillStyle = '#ffd700';
       ctx.font = 'bold 13px -apple-system,sans-serif';
-      ctx.textBaseline = 'top';
-      ctx.fillText('C', cx + R - 6, cy - R + 2);
+      ctx.textBaseline = 'top'; ctx.textAlign = 'right';
+      ctx.fillText('C', cx + R - 1, cy - R + 2);
+      ctx.textAlign = 'center';
     }
 
+    // name label
     const namePart = player.name.split(' ')[1] || player.name;
     ctx.font = `bold 17px -apple-system,"Hiragino Sans","Yu Gothic","Noto Sans CJK JP",sans-serif`;
+    ctx.textAlign = 'center';
     const nW = ctx.measureText(namePart).width + 18;
-    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    ctx.fillStyle = 'rgba(0,0,0,.65)';
     if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - nW / 2, cy + R + 5, nW, 26, 7); ctx.fill(); }
     else { ctx.fillRect(cx - nW / 2, cy + R + 5, nW, 26); }
     ctx.fillStyle = '#fff'; ctx.textBaseline = 'top';
@@ -196,6 +246,31 @@ async function buildShareCard({ formation, assignments, players }) {
   ctx.fillText(`SAMURAI BLUE STARTING XI BUILDER  ·  ${ds}`, W / 2, H - 31);
 
   return canvas;
+}
+
+// ====== Favorites (localStorage) ======
+const FAVS_KEY = 'samurai-blue-favs-v1';
+
+function useFavorites() {
+  const [favorites, setFavorites] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(FAVS_KEY)) || []; }
+    catch { return []; }
+  });
+  const save = useCallback((fav) => {
+    setFavorites(prev => {
+      const next = [fav, ...prev].slice(0, 15);
+      try { localStorage.setItem(FAVS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+  const remove = useCallback((id) => {
+    setFavorites(prev => {
+      const next = prev.filter(f => f.id !== id);
+      try { localStorage.setItem(FAVS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+  return { favorites, save, remove };
 }
 
 // ====== Tweakable defaults ======
@@ -312,7 +387,7 @@ function Header() {
   );
 }
 
-function FormationBar({ formations, currentId, onChange, onReset, onSave, filledCount }) {
+function FormationBar({ formations, currentId, onChange, onReset, onSave, onFavorites, filledCount }) {
   return (
     <div className="formations">
       <div className="formations-top">
@@ -324,6 +399,9 @@ function FormationBar({ formations, currentId, onChange, onReset, onSave, filled
         <div className="formations-actions">
           <button className="ghost-btn" onClick={onReset} title="リセット">
             <span className="btn-ic">↺</span><span>RESET</span>
+          </button>
+          <button className="ghost-btn" onClick={onFavorites} title="お気に入り">
+            <span className="btn-ic">⭐</span><span>FAV</span>
           </button>
           <button className="ghost-btn" onClick={onSave} disabled={filledCount === 0} title="スタメンを画像で保存">
             <span className="btn-ic">💾</span><span>SAVE</span>
@@ -375,7 +453,7 @@ function PitchChip({ player, isSelected, isDragging, isDimmed, onPointerStart, s
 }
 
 // Bench chip (card layout for desktop, compact for mobile)
-function BenchChip({ player, isSelected, isDragging, isDimmed, onPointerStart, showRomaji, showClub }) {
+function BenchChip({ player, isSelected, isDragging, isDimmed, isPlaced, onPointerStart, showRomaji, showClub }) {
   const ref = useRef();
   return (
     <div
@@ -385,11 +463,13 @@ function BenchChip({ player, isSelected, isDragging, isDimmed, onPointerStart, s
         (isSelected ? ' is-selected' : '') +
         (isDragging ? ' is-dragging' : '') +
         (isDimmed ? ' is-dimmed' : '') +
-        (player.captain ? ' is-captain' : '')
+        (player.captain ? ' is-captain' : '') +
+        (isPlaced ? ' is-placed' : '')
       }
-      onPointerDown={(e) => onPointerStart(player.id, e, ref.current)}
+      onPointerDown={isPlaced ? undefined : (e) => onPointerStart(player.id, e, ref.current)}
       data-player={player.id}
     >
+      {isPlaced && <span className="chip-placed-badge">✓ スタメン</span>}
       <div className="chip-jersey">
         <img src="screens/uniicon_new.png" className="uniform-img" alt="" draggable="false" />
         {player.captain && <span className="chip-c">C</span>}
@@ -520,18 +600,21 @@ function Field() {
   );
 }
 
-function Bench({ players, draggingPlayerId, selectedPlayerId, onPointerStart, onBenchTap, showRomaji, showClub }) {
+function Bench({ players, placedIds, draggingPlayerId, selectedPlayerId, onPointerStart, onBenchTap, showRomaji, showClub }) {
   const [filter, setFilter] = useState('ALL');
-  const grouped = groupByRole(players);
+  const grouped = groupByRole(players); // all 26
+
+  const availableByRole = {};
+  for (const r of ROLE_ORDER) availableByRole[r] = grouped[r].filter(p => !placedIds.has(p.id)).length;
 
   const visibleRoles = filter === 'ALL' ? ROLE_ORDER : [filter];
+  const benchCount = players.length - placedIds.size;
 
   return (
     <aside
       className="bench"
       data-drop="bench"
       onClick={(e) => {
-        // Only fire if clicked on bench background (not on a chip)
         if (e.target.closest('.chip')) return;
         onBenchTap();
       }}
@@ -540,7 +623,7 @@ function Bench({ players, draggingPlayerId, selectedPlayerId, onPointerStart, on
         <div className="bench-hdr-row">
           <div className="bench-hdr-label">
             <span className="dot dot-red" />
-            選手一覧<span className="bench-hdr-count">{players.length}/26</span>
+            選手一覧<span className="bench-hdr-count">{benchCount}/{players.length}</span>
           </div>
           <div className="bench-hdr-hint">
             <span className="hint-mob">← 横にスクロール</span>
@@ -554,7 +637,7 @@ function Bench({ players, draggingPlayerId, selectedPlayerId, onPointerStart, on
               className={'filter-tab' + (filter === t ? ' active' : '') + ' filter-' + t}
               onClick={() => setFilter(t)}
             >
-              {t}{t !== 'ALL' && grouped[t] ? <span className="filter-count">{grouped[t].length}</span> : null}
+              {t}{t !== 'ALL' ? <span className="filter-count">{availableByRole[t]}</span> : null}
             </button>
           ))}
         </div>
@@ -565,14 +648,14 @@ function Bench({ players, draggingPlayerId, selectedPlayerId, onPointerStart, on
             <div className="bench-group-title">
               <span className={'role-tag role-' + role}>{role}</span>
               <span className="bench-group-name">{ROLE_LABELS[role]}</span>
-              <span className="bench-group-count">{grouped[role].length}</span>
+              <span className="bench-group-count">{availableByRole[role]}/{grouped[role].length}</span>
             </div>
             <div className="bench-group-chips">
-              {grouped[role].length === 0 && <div className="bench-empty">全員ピッチ上</div>}
               {grouped[role].map(p => (
                 <BenchChip
                   key={p.id}
                   player={p}
+                  isPlaced={placedIds.has(p.id)}
                   isSelected={selectedPlayerId === p.id}
                   isDragging={draggingPlayerId === p.id}
                   isDimmed={draggingPlayerId && draggingPlayerId !== p.id}
@@ -736,6 +819,45 @@ function SaveModal({ formation, assignments, players, onClose }) {
   );
 }
 
+function FavoritesModal({ favorites, filledCount, onSaveCurrent, onLoad, onDelete, onClose }) {
+  const fmt = (ts) => {
+    const d = new Date(ts);
+    return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+  };
+  return (
+    <div className="fav-overlay" onClick={onClose}>
+      <div className="fav-modal" onClick={e => e.stopPropagation()}>
+        <div className="fav-hdr">
+          <span>⭐ お気に入り</span>
+          <button onClick={onClose}>✕</button>
+        </div>
+        <div className="fav-save-row">
+          <button className="fav-save-btn" onClick={onSaveCurrent} disabled={filledCount === 0}>
+            ＋ 現在のスタメンを保存
+          </button>
+        </div>
+        {favorites.length === 0
+          ? <div className="fav-empty">保存されたスタメンはありません</div>
+          : <div className="fav-list">
+              {favorites.map(f => (
+                <div key={f.id} className="fav-item">
+                  <div className="fav-item-info">
+                    <div className="fav-item-name">{f.name}</div>
+                    <div className="fav-item-meta">{f.formationId} · {f.filledCount}/11人 · {fmt(f.savedAt)}</div>
+                  </div>
+                  <div className="fav-item-btns">
+                    <button className="fav-load-btn" onClick={() => onLoad(f)}>読み込む</button>
+                    <button className="fav-del-btn" onClick={() => onDelete(f.id)}>削除</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+        }
+      </div>
+    </div>
+  );
+}
+
 function CompletionModal({ onSave, onClose }) {
   return (
     <div className="comp-overlay" onClick={onClose}>
@@ -789,11 +911,13 @@ function TweaksUI({ tweaks, setTweak }) {
 function App() {
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [formationId, setFormationId] = useState('3-4-2-1');
-  const [assignments, setAssignments] = useState({}); // slotId -> playerId
+  const [assignments, setAssignments] = useState({});
   const [toast, setToast] = useState(null);
   const [showSave, setShowSave] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
   const [pickingSlot, setPickingSlot] = useState(null);
+  const favs = useFavorites();
 
   useEffect(() => {
     const s = document.createElement('style');
@@ -805,7 +929,6 @@ function App() {
   const formation = FORMATIONS.find(f => f.id === formationId);
   const slots = formation.slots;
   const placedIds = new Set(Object.values(assignments));
-  const benchPlayers = PLAYERS.filter(p => !placedIds.has(p.id));
   const filledCount = Object.keys(assignments).length;
 
   // ----- handlers -----
@@ -890,6 +1013,29 @@ function App() {
 
   const onReset = () => { setAssignments({}); dnd.setSelected(null); };
 
+  const onSaveFavorite = () => {
+    const d = new Date();
+    const ds = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    favs.save({
+      id: Date.now(),
+      name: `${formation.label}  ${ds}`,
+      formationId,
+      assignments: { ...assignments },
+      filledCount,
+      savedAt: Date.now(),
+    });
+    setToast({ msg: '⭐ お気に入りに保存しました！', key: Date.now() });
+  };
+
+  const onLoadFavorite = (fav) => {
+    const form = FORMATIONS.find(f => f.id === fav.formationId);
+    if (!form) return;
+    setFormationId(fav.formationId);
+    setAssignments(fav.assignments);
+    setShowFavorites(false);
+    setToast({ msg: 'スタメンを読み込みました！', key: Date.now() });
+  };
+
   const onShuffle = () => {
     const slotsByRole = { GK: [], DF: [], MF: [], FW: [] };
     for (const s of slots) slotsByRole[s.role].push(s);
@@ -942,6 +1088,7 @@ function App() {
         currentId={formationId}
         onChange={changeFormation}
         onReset={onReset}
+        onFavorites={() => setShowFavorites(true)}
         onSave={() => setShowSave(true)}
         filledCount={filledCount}
       />
@@ -966,7 +1113,8 @@ function App() {
           </div>
         </div>
         <Bench
-          players={benchPlayers}
+          players={PLAYERS}
+          placedIds={placedIds}
           draggingPlayerId={dnd.drag?.playerId}
           selectedPlayerId={dnd.selected}
           onPointerStart={dnd.begin}
@@ -985,6 +1133,16 @@ function App() {
           onPick={handlePickPlayer}
           onRemove={handleRemoveFromSlot}
           onClose={() => setPickingSlot(null)}
+        />
+      )}
+      {showFavorites && (
+        <FavoritesModal
+          favorites={favs.favorites}
+          filledCount={filledCount}
+          onSaveCurrent={onSaveFavorite}
+          onLoad={onLoadFavorite}
+          onDelete={favs.remove}
+          onClose={() => setShowFavorites(false)}
         />
       )}
       {showCompletion && (
