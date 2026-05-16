@@ -440,17 +440,20 @@ function FormationBar({ formations, currentId, onChange, onReset, onSave, onFavo
           </button>
         </div>
       </div>
-      <div className="formations-list">
-        {formations.map(f => (
-          <button
-            key={f.id}
-            className={'formation-chip' + (f.id === currentId ? ' active' : '')}
-            onClick={() => onChange(f.id)}
-          >
-            <span className="formation-chip-label">{f.label}</span>
-            <span className="formation-chip-tag">{f.tagline}</span>
-          </button>
-        ))}
+      <div className="formations-list-wrap">
+        <div className="formations-list">
+          {formations.map(f => (
+            <button
+              key={f.id}
+              className={'formation-chip' + (f.id === currentId ? ' active' : '')}
+              onClick={() => onChange(f.id)}
+            >
+              <span className="formation-chip-label">{f.label}</span>
+              <span className="formation-chip-tag">{f.tagline}</span>
+            </button>
+          ))}
+        </div>
+        <span className="tap-hint">ポジションをタップして選択</span>
       </div>
     </div>
   );
@@ -575,7 +578,6 @@ function Pitch({ slots, assignments, players, draggingPlayerId, selectedPlayerId
   return (
     <div className={'pitch-wrap pitch-' + pitchStyle}>
       <div className="pitch-inner">
-        <span className="pitch-tap-hint">タップで選択</span>
         <Field />
         {slots.map(slot => {
           const placedId = assignments[slot.id];
