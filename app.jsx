@@ -18,14 +18,16 @@ const SAVE_STYLES = `
   .save-modal-hdr button:hover{background:rgba(255,255,255,.2)}
   .save-preview-wrap{flex:1;overflow:auto;padding:16px;display:flex;
     align-items:center;justify-content:center;min-height:0;background:#0a0f1e}
-  .save-preview-wrap img{max-width:100%;max-height:100%;border-radius:10px;display:block}
+  .save-preview-wrap img{max-width:100%;max-height:100%;border-radius:10px;display:block;
+    -webkit-touch-callout:default}
   .save-generating{color:rgba(255,255,255,.4);font-size:14px;padding:48px;text-align:center}
-  .save-modal-ftr{padding:14px 18px;background:rgba(255,255,255,.03)}
+  .save-modal-ftr{padding:10px 18px 16px;background:rgba(255,255,255,.03);display:flex;flex-direction:column;gap:8px}
   .save-dl-btn{width:100%;appearance:none;border:0;padding:13px;border-radius:11px;
     background:#ff2d4a;color:#fff;font-weight:800;font-size:15px;cursor:pointer;
     letter-spacing:.04em;transition:background .15s}
   .save-dl-btn:hover{background:#e6273f}
   .save-dl-btn:disabled{background:rgba(255,255,255,.15);cursor:not-allowed;color:rgba(255,255,255,.4)}
+  .save-hint{font-size:12px;color:rgba(110,166,255,.65);text-align:center;line-height:1.6;padding:0 4px}
   .save-hdr-btn{appearance:none;border:0;background:rgba(255,255,255,.08);
     color:rgba(255,255,255,.65);padding:6px 11px;border-radius:9px;
     font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.06em;
@@ -638,19 +640,33 @@ function Toast({ children }) {
   );
 }
 
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const UA = navigator.userAgent;
+const isIOS = /iPad|iPhone|iPod/.test(UA) && !window.MSStream;
+const isSafari = isIOS && /Safari/.test(UA) && !/CriOS|FxiOS|EdgiOS/.test(UA);
+const isIOSChrome = isIOS && /CriOS/.test(UA);
+const isAndroid = /Android/.test(UA);
 
 function SaveModal({ formation, assignments, players, onClose }) {
   const [imgUrl, setImgUrl] = useState(null);
-  const [dlState, setDlState] = useState('idle'); // idle | downloading | done | error
+  const [dlState, setDlState] = useState('idle');
   const canvasRef = useRef(null);
 
   useEffect(() => {
     buildShareCard({ formation, assignments, players }).then(canvas => {
       canvasRef.current = canvas;
       setImgUrl(canvas.toDataURL('image/png'));
-    }).catch(() => setDlState('error'));
+    });
   }, []);
+
+  const openInNewTab = (canvas) => {
+    canvas.toBlob(blob => {
+      if (!blob) { setDlState('error'); return; }
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+      setDlState('done');
+    }, 'image/png');
+  };
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
@@ -658,14 +674,8 @@ function SaveModal({ formation, assignments, players, onClose }) {
     setDlState('downloading');
 
     if (isIOS) {
-      // iOS Safari ignores <a download>; open blob in new tab — user saves via share sheet
-      canvas.toBlob(blob => {
-        if (!blob) { setDlState('error'); return; }
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
-        setDlState('done');
-      }, 'image/png');
+      // iOS: open full image in new tab → share sheet / long-press to save to Photos
+      openInNewTab(canvas);
       return;
     }
 
@@ -682,17 +692,21 @@ function SaveModal({ formation, assignments, players, onClose }) {
         setTimeout(() => URL.revokeObjectURL(url), 5000);
         setDlState('done');
       } catch {
-        setDlState('error');
+        openInNewTab(canvas);
       }
     }, 'image/png');
   };
 
-  const btnLabel = {
-    idle: isIOS ? '📤 画像を開いて保存' : '⬇ 画像をダウンロード',
-    downloading: '処理中…',
-    done: isIOS ? '✓ 開きました！シェアボタンで保存を' : '✓ ダウンロード完了！',
-    error: '⚠ エラー — もう一度試してください',
-  }[dlState];
+  const btnLabel = dlState === 'downloading' ? '処理中…'
+    : dlState === 'done' ? (isIOS ? '✓ 新しいタブで開きました' : '✓ ダウンロード完了！')
+    : dlState === 'error' ? '⚠ もう一度試してください'
+    : isIOS ? '📤 画像を新しいタブで開く' : '⬇ 画像をダウンロード';
+
+  const hint = !imgUrl ? null
+    : isSafari ? '長押し → 「写真に追加」でカメラロールに保存できます'
+    : isIOSChrome ? '新しいタブで開いた後、長押し → 「写真に追加」で保存できます'
+    : isAndroid ? 'ダウンロード後、ギャラリーアプリに自動で追加されます'
+    : null;
 
   return (
     <div className="save-overlay" onClick={onClose}>
@@ -707,11 +721,6 @@ function SaveModal({ formation, assignments, players, onClose }) {
             : <div className="save-generating">画像を生成中…</div>
           }
         </div>
-        {isIOS && imgUrl && (
-          <div style={{padding:'6px 18px 0',fontSize:'12px',color:'rgba(110,166,255,.7)',textAlign:'center'}}>
-            ※ iPhoneは画像を長押し→「写真に追加」でも保存できます
-          </div>
-        )}
         <div className="save-modal-ftr">
           <button
             className="save-dl-btn"
@@ -720,6 +729,7 @@ function SaveModal({ formation, assignments, players, onClose }) {
           >
             {btnLabel}
           </button>
+          {hint && <div className="save-hint">💡 {hint}</div>}
         </div>
       </div>
     </div>
