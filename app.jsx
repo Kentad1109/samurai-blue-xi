@@ -35,7 +35,13 @@ const SAVE_STYLES = `
   .save-hdr-btn.can-save:hover{background:#ff2d4a}
 `;
 
-function buildShareCard({ formation, assignments, players }) {
+async function buildShareCard({ formation, assignments, players }) {
+  const uniformImg = await new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = 'screens/uniform_icon.png';
+  });
   const W = 1080, H = 1350;
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
@@ -125,17 +131,13 @@ function buildShareCard({ formation, assignments, players }) {
 
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
-    ctx.fillStyle = '#ff2d4a'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+    if (uniformImg) {
+      ctx.drawImage(uniformImg, cx - R, cy - R, R * 2, R * 2);
+    } else {
+      ctx.fillStyle = '#1948d1'; ctx.fill();
+    }
     ctx.restore();
-
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2.5; ctx.stroke();
-
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold 28px -apple-system,"Helvetica Neue",sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(player.num), cx, cy);
 
     if (player.captain) {
       ctx.fillStyle = '#ffd700';
@@ -346,7 +348,7 @@ function PitchChip({ player, isSelected, isDragging, isDimmed, onPointerStart, s
       data-player={player.id}
     >
       <div className="chip-jersey">
-        <span className="chip-num">{player.num}</span>
+        <img src="screens/uniform_icon.png" className="uniform-img" alt="" draggable="false" />
         {player.captain && <span className="chip-c">C</span>}
       </div>
       <div className="chip-meta">
@@ -374,7 +376,7 @@ function BenchChip({ player, isSelected, isDragging, isDimmed, onPointerStart, s
       data-player={player.id}
     >
       <div className="chip-jersey">
-        <span className="chip-num">{player.num}</span>
+        <img src="screens/uniform_icon.png" className="uniform-img" alt="" draggable="false" />
         {player.captain && <span className="chip-c">C</span>}
       </div>
       <div className="chip-meta">
@@ -537,7 +539,7 @@ function DragGhost({ drag, players }) {
       style={{ left: drag.x, top: drag.y }}
     >
       <div className="chip-jersey ghost-jersey">
-        <span className="chip-num">{p.num}</span>
+        <img src="screens/uniform_icon.png" className="uniform-img" alt="" draggable="false" />
         {p.captain && <span className="chip-c">C</span>}
       </div>
       <div className="ghost-name">{p.name}</div>
@@ -582,8 +584,8 @@ function SaveModal({ formation, assignments, players, onClose }) {
   const [imgUrl, setImgUrl] = useState(null);
 
   useEffect(() => {
-    const canvas = buildShareCard({ formation, assignments, players });
-    setImgUrl(canvas.toDataURL('image/png'));
+    buildShareCard({ formation, assignments, players })
+      .then(canvas => setImgUrl(canvas.toDataURL('image/png')));
   }, []);
 
   const handleDownload = () => {
