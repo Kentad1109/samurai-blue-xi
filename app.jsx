@@ -233,14 +233,14 @@ async function buildShareCard({ formation, assignments, players }) {
 
     // name label
     const namePart = player.name;
-    ctx.font = `bold 15px -apple-system,"Hiragino Sans","Yu Gothic","Noto Sans CJK JP",sans-serif`;
+    ctx.font = `bold 22px -apple-system,"Hiragino Sans","Yu Gothic","Noto Sans CJK JP",sans-serif`;
     ctx.textAlign = 'center';
-    const nW = ctx.measureText(namePart).width + 16;
-    ctx.fillStyle = 'rgba(0,0,0,.65)';
-    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - nW / 2, cy + R + 5, nW, 26, 7); ctx.fill(); }
-    else { ctx.fillRect(cx - nW / 2, cy + R + 5, nW, 26); }
+    const nW = ctx.measureText(namePart).width + 18;
+    ctx.fillStyle = 'rgba(0,0,0,.7)';
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - nW / 2, cy + R + 6, nW, 32, 8); ctx.fill(); }
+    else { ctx.fillRect(cx - nW / 2, cy + R + 6, nW, 32); }
     ctx.fillStyle = '#fff'; ctx.textBaseline = 'top';
-    ctx.fillText(namePart, cx, cy + R + 10);
+    ctx.fillText(namePart, cx, cy + R + 11);
   }
 
   // Footer
