@@ -232,10 +232,10 @@ async function buildShareCard({ formation, assignments, players }) {
     }
 
     // name label
-    const namePart = player.name.split(' ')[1] || player.name;
-    ctx.font = `bold 17px -apple-system,"Hiragino Sans","Yu Gothic","Noto Sans CJK JP",sans-serif`;
+    const namePart = player.name;
+    ctx.font = `bold 15px -apple-system,"Hiragino Sans","Yu Gothic","Noto Sans CJK JP",sans-serif`;
     ctx.textAlign = 'center';
-    const nW = ctx.measureText(namePart).width + 18;
+    const nW = ctx.measureText(namePart).width + 16;
     ctx.fillStyle = 'rgba(0,0,0,.65)';
     if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - nW / 2, cy + R + 5, nW, 26, 7); ctx.fill(); }
     else { ctx.fillRect(cx - nW / 2, cy + R + 5, nW, 26); }
