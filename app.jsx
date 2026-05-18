@@ -182,7 +182,7 @@ async function buildShareCard({ formation, assignments, players }) {
   // Players
   const playerById = Object.fromEntries(players.map(p => [p.id, p]));
   const slotById = Object.fromEntries(formation.slots.map(s => [s.id, s]));
-  const R = 38;
+  const R = 48;
 
   // Empty slots (dashed rings)
   ctx.setLineDash([6, 5]);
