@@ -1196,4 +1196,18 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+function Disclaimer() {
+  return (
+    <div style={{
+      textAlign:'center', fontSize:'10px', color:'rgba(255,255,255,0.2)',
+      padding:'24px 12px 8px', lineHeight:1.8, letterSpacing:'0.04em'
+    }}>
+      ファンメイドコンテンツ・非公式サイト / Fan-made, unofficial content<br />
+      FIFA・日本サッカー協会とは一切関係ありません
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <><App /><Disclaimer /></>
+);
